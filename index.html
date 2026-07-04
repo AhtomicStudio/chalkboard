@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>our little chalkboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wall:#f2e8d8;
+    --ink:#5b4230;
+    --ink-soft:#8a6f58;
+    --wood-hi:#a06b3e;
+    --wood:#835430;
+    --wood-lo:#5e3a1e;
+    --chalk-white:#f4f1ea;
+    --chalk-yellow:#f7d774;
+    --chalk-pink:#f2a7c3;
+    --chalk-blue:#9ad1e8;
+    --chalk-green:#b5e0a5;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 50% -10%, #fff8ec 0%, transparent 55%),
+      var(--wall);
+    font-family:'Patrick Hand', 'Comic Sans MS', cursive;
+    color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;
+    overflow-x:hidden;
+  }
+  /* subtle wall grain */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/></filter><rect width="140" height="140" filter="url(%23n)" opacity="0.9"/></svg>');
+  }
+
+  /* ── header ─────────────────────────────── */
+  header{
+    width:min(1120px,96vw);
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding:18px 8px 10px;
+    flex-wrap:wrap;
+  }
+  #roomTitle{
+    font-family:'Caveat',cursive;font-weight:700;font-size:clamp(28px,4.5vw,44px);
+    color:var(--ink);line-height:1;outline:none;border-radius:8px;padding:0 8px;
+    transform:rotate(-1.2deg);
+  }
+  #roomTitle[contenteditable="true"]:hover{background:#fff3;box-shadow:0 0 0 2px #d9c6a8;}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .btn{
+    font-family:'Caveat',cursive;font-weight:600;font-size:20px;
+    color:var(--ink);background:#fffdf7;
+    border:2px solid var(--ink-soft);border-radius:12px 14px 12px 15px/15px 12px 14px 12px;
+    padding:4px 16px;cursor:pointer;
+    box-shadow:2px 3px 0 #d9c6a8;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:hover{transform:translateY(-2px) rotate(-.5deg);box-shadow:2px 5px 0 #d9c6a8;}
+  .btn:active{transform:translateY(1px);box-shadow:1px 1px 0 #d9c6a8;}
+  #modeBadge{font-size:14px;color:var(--ink-soft);opacity:.85;}
+
+  /* ── board & frame ──────────────────────── */
+  #frame{
+    width:min(1120px,96vw);
+    padding:16px;
+    border-radius:18px;
+    background:
+      linear-gradient(178deg, var(--wood-hi) 0%, var(--wood) 40%, var(--wood-lo) 100%);
+    box-shadow:
+      inset 0 2px 3px #ffffff55, inset 0 -3px 6px #00000055,
+      0 14px 30px -8px #7a5a3a88;
+    position:relative;
+  }
+  #board{
+    position:relative;
+    width:100%;
+    aspect-ratio:16/10;
+    max-height:72vh;
+    border-radius:8px;
+    overflow:hidden;
+    box-shadow:inset 0 0 60px #00000066, inset 0 0 8px #000000aa;
+    touch-action:none;
+    cursor:crosshair;
+    transition:background-color .5s ease;
+  }
+  /* board texture + vignette */
+  #board::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.09;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2"/></filter><rect width="180" height="180" filter="url(%23n)" opacity="1"/></svg>');
+  }
+  #view,#fx{position:absolute;inset:0;width:100%;height:100%;z-index:2;}
+  #fx{z-index:6;pointer-events:none;}
+
+  #divider{
+    position:absolute;left:calc(50% - 6px);top:1.5%;height:97%;width:12px;z-index:3;
+    pointer-events:none;opacity:.45;
+  }
+  #dividerHeart{
+    position:absolute;left:50%;top:8px;transform:translateX(-50%) rotate(-6deg);
+    z-index:3;pointer-events:none;opacity:.5;font-size:15px;color:#f4f1ea;
+    font-family:'Caveat',cursive;
+  }
+
+  .side-label{
+    position:absolute;top:10px;z-index:5;
+    font-family:'Caveat',cursive;font-weight:600;font-size:clamp(17px,2.4vw,26px);
+    color:#f4f1eacc;padding:2px 12px;border-radius:10px;outline:none;
+    display:flex;align-items:center;gap:8px;max-width:38%;
+    text-shadow:0 0 6px #0004;
+  }
+  .side-label.left{left:14px;transform:rotate(-1.5deg);}
+  .side-label.right{right:14px;transform:rotate(1.3deg);flex-direction:row-reverse;}
+  .side-label .dot{width:9px;height:9px;border-radius:50%;background:#777;flex:none;
+    box-shadow:0 0 4px #0006;transition:background .3s;}
+  .side-label .dot.online{background:#8fe28f;box-shadow:0 0 8px #8fe28fcc;}
+  .side-label.mine[contenteditable="true"]:hover{background:#ffffff14;cursor:text;}
+  .side-label .who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  #hint{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    z-index:4;pointer-events:none;
+    font-family:'Caveat',cursive;font-size:clamp(22px,3.5vw,36px);
+    color:#f4f1ea;opacity:.35;transform:rotate(-2deg);
+    transition:opacity .6s ease;
+  }
+  #hint.gone{opacity:0;}
+
+  /* notes */
+  .note{
+    position:absolute;z-index:5;max-width:42%;
+    font-family:'Caveat',cursive;font-weight:600;line-height:1.15;
+    padding:2px 6px;border-radius:8px;
+    white-space:pre-wrap;word-break:break-word;
+    text-shadow:0 0 1px currentColor, 1px 1px 0 #0003;
+    animation:poof .35s ease;
+  }
+  @keyframes poof{
+    0%{transform:scale(.6) rotate(-4deg);opacity:0;}
+    70%{transform:scale(1.06) rotate(1deg);}
+    100%{transform:scale(1) rotate(0);opacity:1;}
+  }
+  .note.mine{cursor:grab;}
+  .note.mine:active{cursor:grabbing;}
+  .note.mine:hover{box-shadow:0 0 0 1.5px #ffffff3d;}
+  .note .txt{outline:none;min-width:30px;min-height:1em;}
+  .note .del{
+    position:absolute;top:-11px;right:-11px;width:22px;height:22px;
+    border-radius:50%;border:none;cursor:pointer;display:none;
+    background:#f4f1ea;color:#5b4230;font-size:14px;line-height:1;
+    font-family:inherit;box-shadow:1px 2px 4px #0006;
+  }
+  .note.mine:hover .del{display:block;}
+  .note.editing{box-shadow:0 0 0 1.5px #ffffff70;cursor:text;}
+
+  /* cursor ring */
+  #ring{
+    position:absolute;z-index:7;pointer-events:none;border:1.5px solid #ffffff88;
+    border-radius:50%;transform:translate(-50%,-50%);display:none;
+  }
+
+  /* ── chalk tray ─────────────────────────── */
+  #tray{
+    width:min(1000px,92vw);
+    margin-top:-6px;
+    background:linear-gradient(180deg, var(--wood-hi), var(--wood) 55%, var(--wood-lo));
+    border-radius:0 0 16px 16px;
+    box-shadow:inset 0 3px 5px #00000044, 0 10px 20px -8px #7a5a3a99;
+    padding:12px 18px 14px;
+    display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;
+    position:relative;z-index:2;
+  }
+  .tray-group{display:flex;align-items:center;gap:10px;}
+  .tray-sep{width:2px;height:34px;background:#00000033;border-radius:2px;box-shadow:1px 0 0 #ffffff22;}
+
+  .chalk{
+    width:52px;height:16px;border-radius:4px/7px;cursor:pointer;border:none;padding:0;
+    box-shadow:inset 0 2px 2px #ffffff66, inset 0 -2px 3px #00000033, 0 3px 4px #00000055;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1);
+    position:relative;
+  }
+  .chalk:nth-child(odd){transform:rotate(-2deg);}
+  .chalk:nth-child(even){transform:rotate(2deg);}
+  .chalk:hover{transform:translateY(-4px);}
+  .chalk.sel{transform:translateY(-7px) rotate(-3deg);
+    box-shadow:inset 0 2px 2px #ffffff66, inset 0 -2px 3px #00000033, 0 8px 8px #00000066;}
+  .chalk.sel::after{
+    content:"";position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);
+    width:6px;height:6px;border-radius:50%;background:#fffdf7cc;
+  }
+
+  #eraserBtn{
+    width:64px;height:30px;border-radius:5px;cursor:pointer;border:none;padding:0;
+    background:linear-gradient(180deg,#4a4a52 0%, #4a4a52 55%, #d8d3c8 55%, #cfc9bb 100%);
+    box-shadow:0 3px 5px #00000066, inset 0 1px 1px #ffffff33;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1);
+    transform:rotate(-1deg);
+  }
+  #eraserBtn:hover{transform:translateY(-3px) rotate(-1deg);}
+  #eraserBtn.sel{transform:translateY(-7px) rotate(2deg);box-shadow:0 9px 9px #00000066;}
+
+  #textBtn{
+    width:44px;height:30px;border-radius:8px;cursor:pointer;
+    border:2px dashed #f4f1ea99;background:transparent;
+    color:#f4f1ea;font-family:'Caveat',cursive;font-weight:700;font-size:21px;line-height:1;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .2s;
+  }
+  #textBtn:hover{transform:translateY(-3px);}
+  #textBtn.sel{background:#f4f1ea22;transform:translateY(-6px);border-style:solid;}
+
+  .slider-wrap{display:flex;flex-direction:column;align-items:center;gap:1px;color:#f7ecd9;}
+  .slider-wrap label{font-size:13px;opacity:.85;letter-spacing:.4px;font-family:'Caveat',cursive;font-size:16px;}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:96px;height:20px;background:transparent;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:3px;background:#00000055;box-shadow:0 1px 0 #ffffff22;}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;margin-top:-5.5px;
+    background:var(--chalk-white);box-shadow:0 2px 3px #00000077, inset 0 -2px 2px #00000022;
+  }
+  input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:#00000055;}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:var(--chalk-white);box-shadow:0 2px 3px #00000077;}
+
+  .bg-swatch{
+    width:26px;height:20px;border-radius:4px;cursor:pointer;border:2px solid #ffffff44;padding:0;
+    box-shadow:0 2px 3px #00000055;transition:transform .15s;
+  }
+  .bg-swatch:hover{transform:translateY(-2px);}
+  .bg-swatch.sel{border-color:#fffdf7;transform:translateY(-3px);}
+
+  .tool-btn{
+    font-family:'Caveat',cursive;font-weight:600;font-size:18px;
+    background:transparent;color:#f7ecd9;border:2px solid #f7ecd955;border-radius:10px;
+    padding:2px 12px;cursor:pointer;transition:all .15s;white-space:nowrap;
+  }
+  .tool-btn:hover{background:#ffffff1a;transform:translateY(-2px);}
+  .tool-btn.danger-armed{background:#c96f6f;border-color:#e8b3b3;color:#fff;}
+
+  footer{
+    margin:14px 0 22px;font-family:'Caveat',cursive;font-size:17px;color:var(--ink-soft);
+    opacity:.8;text-align:center;padding:0 12px;
+  }
+  footer .local-note{font-size:14px;opacity:.8;}
+
+  /* ── modal ──────────────────────────────── */
+  #modalWrap{
+    position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
+    background:#3a2c1ba8;backdrop-filter:blur(3px);
+  }
+  #modalWrap.show{display:flex;}
+  #modal{
+    background:#fffdf6;border-radius:20px;padding:30px 34px 26px;max-width:430px;width:92vw;
+    box-shadow:0 20px 50px -10px #00000088;text-align:center;
+    border:2px solid #e4d5bd;
+    animation:poof .35s ease;
+  }
+  #modal h2{font-family:'Caveat',cursive;font-size:34px;margin:0 0 4px;transform:rotate(-1deg);}
+  #modal p{margin:4px 0 16px;color:var(--ink-soft);font-size:17px;}
+  #nameInput{
+    font-family:'Caveat',cursive;font-size:24px;text-align:center;color:var(--ink);
+    border:none;border-bottom:2.5px dashed #c9b391;background:transparent;outline:none;
+    padding:2px 8px;width:80%;margin-bottom:20px;
+  }
+  #nameInput::placeholder{color:#c9b391;}
+  .side-pick{display:flex;gap:14px;justify-content:center;}
+  .side-pick button{
+    flex:1;font-family:'Caveat',cursive;font-weight:600;font-size:21px;color:#f4f1ea;
+    background:#2d4a3e;border:none;border-radius:14px;padding:16px 8px 12px;cursor:pointer;
+    box-shadow:inset 0 0 24px #0006, 0 4px 0 #5e3a1e;
+    transition:transform .15s;line-height:1.25;
+  }
+  .side-pick button small{display:block;font-size:14px;opacity:.75;font-family:'Patrick Hand',cursive;}
+  .side-pick button:hover:not(:disabled){transform:translateY(-3px);}
+  .side-pick button:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.5);}
+
+  /* toast */
+  #toast{
+    position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#46352a;color:#f7ecd9;font-family:'Caveat',cursive;font-size:20px;
+    padding:8px 22px;border-radius:14px;opacity:0;pointer-events:none;z-index:60;
+    transition:all .3s ease;box-shadow:0 8px 20px #00000055;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ── gift glow (they left you something) ── */
+  .gift-glow{
+    position:absolute;top:0;bottom:0;width:50%;z-index:4;pointer-events:none;
+    background:radial-gradient(ellipse at center, #f7d77426 0%, transparent 68%);
+    animation:giftGlow 4.2s ease forwards;
+  }
+  .gl-left{left:0;} .gl-right{left:50%;}
+  @keyframes giftGlow{0%{opacity:0;}18%{opacity:1;}60%{opacity:.85;}100%{opacity:0;}}
+
+  /* ── stamps ─────────────────────────────── */
+  .stamp-btn{
+    width:34px;height:30px;border-radius:9px;cursor:pointer;line-height:1;
+    border:2px dashed #f4f1ea55;background:transparent;color:#f4f1ea;font-size:17px;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .2s;
+  }
+  .stamp-btn:hover{transform:translateY(-3px);}
+  .stamp-btn.sel{background:#f4f1ea22;border-style:solid;transform:translateY(-6px);}
+
+  /* ── landing ────────────────────────────── */
+  #landing{
+    position:fixed;inset:0;z-index:40;display:none;
+    flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    background:
+      radial-gradient(ellipse at 50% -10%, #fff8ec 0%, transparent 55%),
+      var(--wall);
+    padding:24px;overflow:auto;
+  }
+  .landing-board{
+    padding:13px;border-radius:16px;transform:rotate(-.8deg);
+    background:linear-gradient(178deg, var(--wood-hi) 0%, var(--wood) 40%, var(--wood-lo) 100%);
+    box-shadow:inset 0 2px 3px #ffffff55, inset 0 -3px 6px #00000055, 0 14px 30px -8px #7a5a3a88;
+  }
+  .lb-inner{
+    background:#2d4a3e;border-radius:8px;padding:34px 44px 30px;text-align:center;
+    box-shadow:inset 0 0 50px #00000066, inset 0 0 8px #000000aa;
+  }
+  .lb-title{
+    font-family:'Caveat',cursive;font-weight:700;font-size:clamp(34px,6vw,50px);
+    color:#f4f1ea;transform:rotate(-1.5deg);text-shadow:0 0 8px #0005;
+  }
+  .lb-sub{color:#f4f1eab0;font-size:17px;margin-top:8px;line-height:1.5;}
+  .lb-hearts{color:#f2a7c3;opacity:.8;font-size:15px;margin-top:10px;}
+  .btn.big{font-size:26px;padding:8px 28px;transform:rotate(-.6deg);}
+  .landing-note{color:var(--ink-soft);font-size:15px;margin:0;text-align:center;}
+  #myBoards{margin-top:6px;width:min(430px,92vw);display:none;}
+  .mb-head{font-family:'Caveat',cursive;font-size:23px;color:var(--ink);margin-bottom:8px;text-align:center;transform:rotate(-.8deg);}
+  .mb-item{
+    display:flex;justify-content:space-between;gap:10px;padding:8px 16px;margin-bottom:9px;
+    background:#fffdf7;border:2px solid #e0cfae;border-radius:12px 14px 12px 15px/15px 12px 14px 12px;
+    text-decoration:none;color:var(--ink);box-shadow:2px 3px 0 #d9c6a8;
+    transition:transform .12s ease;
+  }
+  .mb-item:hover{transform:translateY(-2px) rotate(-.4deg);}
+  .mb-title{font-family:'Caveat',cursive;font-weight:600;font-size:21px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mb-sub{color:var(--ink-soft);font-size:14px;align-self:center;white-space:nowrap;}
+  footer a{color:inherit;}
+
+  @media (max-width:640px){
+    #tray{gap:10px;padding:10px 8px;}
+    .chalk{width:40px;}
+    input[type=range]{width:74px;}
+    .tray-sep{display:none;}
+    .note{max-width:46%;}
+  }
+</style>
+</head>
+<body>
+
+<section id="landing">
+  <div class="landing-board">
+    <div class="lb-inner">
+      <div class="lb-title">a chalkboard for two</div>
+      <div class="lb-sub">one board, split down the middle.<br>your half, their half, little chalk notes in between.</div>
+      <div class="lb-hearts">♥ ✎ ♥</div>
+    </div>
+  </div>
+  <button class="btn big" id="makeBoardBtn">✨ make your chalkboard</button>
+  <p class="landing-note">you'll get a private link — share it with exactly one favorite person.</p>
+  <div id="myBoards"></div>
+</section>
+
+<header>
+  <div id="roomTitle" spellcheck="false">our little chalkboard</div>
+  <div class="header-right">
+    <span id="modeBadge"></span>
+    <button class="btn" id="keepsakeBtn" title="save the board as a picture">🖼 &nbsp;keepsake</button>
+    <button class="btn" id="inviteBtn">✉ &nbsp;invite</button>
+  </div>
+</header>
+
+<div id="frame">
+  <div id="board">
+    <canvas id="view"></canvas>
+    <svg id="divider" viewBox="0 0 12 800" preserveAspectRatio="none">
+      <path d="M6 0 C7.6 70 4.4 140 6 215 C7.6 290 4.3 365 6 440 C7.4 515 4.6 590 6 665 C6.8 720 5.4 762 6 800"
+        fill="none" stroke="#f4f1ea" stroke-width="2.6" stroke-dasharray="11 15" stroke-linecap="round"/>
+    </svg>
+    <div id="dividerHeart">♥</div>
+    <div class="side-label left"><span class="dot"></span><span class="who">…</span></div>
+    <div class="side-label right"><span class="dot"></span><span class="who">…</span></div>
+    <div id="hint">psst… write something sweet ♡</div>
+    <canvas id="fx"></canvas>
+    <div id="ring"></div>
+  </div>
+</div>
+
+<div id="tray">
+  <div class="tray-group" id="chalks"></div>
+  <div class="tray-sep"></div>
+  <div class="tray-group">
+    <button id="eraserBtn" title="eraser"></button>
+    <button id="textBtn" title="typed note">Aa</button>
+  </div>
+  <div class="tray-sep"></div>
+  <div class="tray-group" id="stamps"></div>
+  <div class="tray-sep"></div>
+  <div class="tray-group">
+    <div class="slider-wrap"><input type="range" id="widthSlider" min="2" max="22" value="5"><label>chalk width</label></div>
+    <div class="slider-wrap"><input type="range" id="sizeSlider" min="18" max="76" value="36"><label>text size</label></div>
+  </div>
+  <div class="tray-sep"></div>
+  <div class="tray-group" id="bgs"></div>
+  <div class="tray-sep"></div>
+  <div class="tray-group">
+    <button class="tool-btn" id="undoBtn" title="undo (ctrl+z)">↶ undo</button>
+    <button class="tool-btn" id="clearBtn">wipe my side</button>
+    <button class="tool-btn" id="soundBtn" title="chalk sounds">🔊</button>
+  </div>
+</div>
+
+<footer>
+  made with ♥ for leaving little notes · <a href="#" id="anotherBoard">start another board</a>
+  <div class="local-note" id="localNote"></div>
+</footer>
+
+<div id="modalWrap">
+  <div id="modal">
+    <h2>welcome in ♡</h2>
+    <p>this chalkboard belongs to two people.<br>what's your name, and which half is yours?</p>
+    <input id="nameInput" placeholder="your name" maxlength="24">
+    <div class="side-pick">
+      <button id="pickL">left side<small></small></button>
+      <button id="pickR">right side<small></small></button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   FIREBASE SETUP (optional — see README.md)
+   Paste your firebase config object below to enable real-time
+   sync between two people. Leave as null to run in local mode.
+═══════════════════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = null;
+/* example:
+const FIREBASE_CONFIG = {
+  apiKey: "...",
+  authDomain: "your-app.firebaseapp.com",
+  databaseURL: "https://your-app-default-rtdb.firebaseio.com",
+  projectId: "your-app",
+};
+*/
+
+(() => {
+"use strict";
+
+/* ── helpers ─────────────────────────────── */
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+const CHALK_COLORS = [
+  ["white",  "#f4f1ea"],
+  ["yellow", "#f7d774"],
+  ["pink",   "#f2a7c3"],
+  ["blue",   "#9ad1e8"],
+  ["green",  "#b5e0a5"],
+];
+const BOARDS = [
+  ["classic green", "#2d4a3e"],
+  ["midnight",      "#23262b"],
+  ["slate blue",    "#2a3547"],
+  ["plum",          "#3b2c40"],
+  ["charcoal",      "#35383c"],
+];
+
+/* room id: cozy words */
+const W1 = ["honey","maple","clover","poppy","willow","daisy","birch","rosemary","peach","juniper"];
+const W2 = ["teapot","porch","garden","window","letterbox","nook","attic","kitchen","meadow","lantern"];
+function newRoomId(){
+  // word-word-xxxxx: memorable but not guessable (the link IS the key)
+  const suffix = Math.random().toString(36).slice(2, 7);
+  return W1[Math.random()*W1.length|0] + "-" + W2[Math.random()*W2.length|0] + "-" + suffix;
+}
+const roomId = location.hash.replace(/^#/, "").replace(/[^a-zA-Z0-9\-_]/g, "");
+
+/* ── my boards (this device) ─────────────── */
+function myBoardsList(){
+  try { return JSON.parse(localStorage.getItem("chalk-my-boards")) || []; } catch(e){ return []; }
+}
+function saveMyBoardsList(list){
+  try { localStorage.setItem("chalk-my-boards", JSON.stringify(list.slice(0, 12))); } catch(e){}
+}
+function goToBoard(id){ location.hash = id; location.reload(); }
+window.addEventListener("hashchange", () => location.reload());
+
+/* ── landing page (no board link yet) ────── */
+if (!roomId){
+  const landing = document.getElementById("landing");
+  landing.style.display = "flex";
+  document.getElementById("makeBoardBtn").addEventListener("click", () => goToBoard(newRoomId()));
+  const list = myBoardsList().sort((a, b) => (b.last||0) - (a.last||0));
+  const wrap = document.getElementById("myBoards");
+  if (list.length){
+    wrap.style.display = "block";
+    const head = document.createElement("div");
+    head.className = "mb-head";
+    head.textContent = "your boards";
+    wrap.appendChild(head);
+    for (const b of list){
+      const a = document.createElement("a");
+      a.className = "mb-item";
+      a.href = "#" + b.id;
+      const t = document.createElement("span"); t.className = "mb-title";
+      t.textContent = b.title || "our little chalkboard";
+      const s = document.createElement("span"); s.className = "mb-sub";
+      s.textContent = [b.me, b.other].filter(Boolean).join(" + ") || "waiting for two";
+      a.append(t, s);
+      a.addEventListener("click", e => { e.preventDefault(); goToBoard(b.id); });
+      wrap.appendChild(a);
+    }
+  }
+  return; // board app doesn't boot on the landing page
+}
+
+function rememberBoard(){
+  if (!state.mySide) return;
+  const otherSide = state.mySide === "L" ? "R" : "L";
+  const list = myBoardsList().filter(b => b.id !== roomId);
+  list.unshift({
+    id: roomId,
+    title: document.getElementById("roomTitle").textContent.trim(),
+    me: state.owners[state.mySide] && state.owners[state.mySide].name,
+    other: (state.owners[otherSide] && state.owners[otherSide].name) || null,
+    last: Date.now(),
+  });
+  saveMyBoardsList(list);
+}
+
+let deviceId = localStorage.getItem("chalk-device-id");
+if (!deviceId) { deviceId = uid(); localStorage.setItem("chalk-device-id", deviceId); }
+
+/* ── state ───────────────────────────────── */
+const state = {
+  tool: "chalk",          // chalk | erase | text | stamp
+  stampKind: "heart",
+  color: CHALK_COLORS[0][1],
+  width: 5,
+  textSize: 36,
+  mySide: null,           // 'L' | 'R' | null (spectator)
+  owners: {},             // {L:{name,deviceId}, R:{...}}
+  bg: BOARDS[0][1],
+};
+
+/* ── storage layer ───────────────────────── */
+/* handlers the UI registers; both stores call these */
+const on = {
+  stroke(){}, strokeRemoved(){},
+  note(){}, noteRemoved(){},
+  owners(){}, meta(){}, presence(){},
+};
+
+function makeLocalStore(){
+  const key = "chalk-room-" + roomId;
+  let data;
+  try { data = JSON.parse(localStorage.getItem(key)) || {}; } catch(e){ data = {}; }
+  data.strokes = data.strokes || {};
+  data.notes   = data.notes   || {};
+  data.owners  = data.owners  || {};
+  data.meta    = data.meta    || {};
+  const save = () => { try { localStorage.setItem(key, JSON.stringify(data)); } catch(e){} };
+  return {
+    mode: "local",
+    start(){
+      Object.values(data.strokes).sort((a,b)=>(a.t||0)-(b.t||0)).forEach(s => on.stroke(s));
+      Object.values(data.notes).forEach(n => on.note(n));
+      on.owners(data.owners);
+      on.meta(data.meta);
+    },
+    putStroke(s){ data.strokes[s.id] = s; save(); on.stroke(s); },
+    removeStroke(id){ const s=data.strokes[id]; if(!s) return; delete data.strokes[id]; save(); on.strokeRemoved(id, s.side); },
+    putNote(n){ data.notes[n.id] = n; save(); on.note(n); },
+    removeNote(id){ delete data.notes[id]; save(); on.noteRemoved(id); },
+    claimSide(side, owner){ data.owners[side] = owner; save(); on.owners(data.owners); },
+    setMeta(patch){ Object.assign(data.meta, patch); save(); on.meta(data.meta); },
+    setPresence(){}, // n/a locally
+  };
+}
+
+function makeFirebaseStore(){
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db = firebase.database();
+  const root = db.ref("rooms/" + roomId);
+  const refs = {
+    strokes: root.child("strokes"),
+    notes:   root.child("notes"),
+    owners:  root.child("owners"),
+    meta:    root.child("meta"),
+    presence:root.child("presence"),
+  };
+  return {
+    mode: "firebase",
+    start(){
+      refs.strokes.on("child_added",   snap => on.stroke(snap.val()));
+      refs.strokes.on("child_changed", snap => on.stroke(snap.val()));
+      refs.strokes.on("child_removed", snap => { const s = snap.val(); on.strokeRemoved(snap.key, s && s.side); });
+      refs.notes.on("child_added",   snap => on.note(snap.val()));
+      refs.notes.on("child_changed", snap => on.note(snap.val()));
+      refs.notes.on("child_removed", snap => on.noteRemoved(snap.key));
+      refs.owners.on("value", snap => on.owners(snap.val() || {}));
+      refs.meta.on("value",   snap => on.meta(snap.val() || {}));
+      refs.presence.on("value", snap => on.presence(snap.val() || {}));
+    },
+    putStroke(s){ refs.strokes.child(s.id).set(s); },
+    removeStroke(id){ refs.strokes.child(id).remove(); },
+    putNote(n){ refs.notes.child(n.id).set(n); },
+    removeNote(id){ refs.notes.child(id).remove(); },
+    claimSide(side, owner){ refs.owners.child(side).set(owner); },
+    setMeta(patch){ refs.meta.update(patch); },
+    setPresence(side){
+      if (!side) return;
+      const ref = refs.presence.child(side);
+      const conn = db.ref(".info/connected");
+      conn.on("value", snap => {
+        if (!snap.val()) return;
+        ref.onDisconnect().set({ online:false, last: firebase.database.ServerValue.TIMESTAMP });
+        ref.set({ online:true, last: firebase.database.ServerValue.TIMESTAMP });
+      });
+    },
+  };
+}
+
+const hasFirebase = FIREBASE_CONFIG && typeof firebase !== "undefined";
+const store = hasFirebase ? makeFirebaseStore() : makeLocalStore();
+
+/* ── canvas setup ────────────────────────── */
+const board = $("#board");
+const view  = $("#view");
+const fx    = $("#fx");
+const vctx  = view.getContext("2d");
+const fctx  = fx.getContext("2d");
+const offL  = document.createElement("canvas");
+const offR  = document.createElement("canvas");
+const ctxL  = offL.getContext("2d");
+const ctxR  = offR.getContext("2d");
+
+const strokeIndex = new Map();   // id -> {s, drawn}
+const strokeOrder = [];          // ids in arrival order
+const noteEls = new Map();       // id -> element
+const myStrokes = [];            // my stroke ids, for undo
+
+function sideCtx(side){ return side === "L" ? ctxL : ctxR; }
+function sideOf(nx){ return nx < 0.5 ? "L" : "R"; }
+
+function resizeCanvases(){
+  const r = board.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(2, Math.round(r.width * dpr));
+  const h = Math.max(2, Math.round(r.height * dpr));
+  [view, fx, offL, offR].forEach(c => { c.width = w; c.height = h; });
+  rebuildSide("L"); rebuildSide("R");
+  composite();
+  updateNoteScale();
+}
+
+function clipSide(ctx, side){
+  ctx.save();
+  ctx.beginPath();
+  if (side === "L") ctx.rect(0, 0, view.width/2, view.height);
+  else ctx.rect(view.width/2, 0, view.width/2, view.height);
+  ctx.clip();
+}
+
+function px(p){ return [p[0]*view.width, p[1]*view.height]; }
+function wpx(w){ return Math.max(1.2, w * view.width / 1000); }
+
+/* Chalk texture: strokes are built from dense, jittered low-alpha dots
+   distributed across the stroke width — no line caps, so no seam discs.
+   Per-stroke "streaks" (seeded from the stroke id) mimic the dry lines a
+   real chalk stick leaves; a fixed spatial "tooth" function mimics the
+   board's surface grain. */
+const TEX_CACHE = new Map();
+function strokeTex(id){
+  let tex = TEX_CACHE.get(id);
+  if (tex) return tex;
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++){ h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const rnd = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; };
+  tex = [];
+  const cnt = 2 + (rnd() < 0.5 ? 0 : 1);
+  for (let i = 0; i < cnt; i++){
+    tex.push({ o: rnd()*1.5 - 0.75, w: 0.14 + rnd()*0.16, d: 0.30 + rnd()*0.35 });
+  }
+  TEX_CACHE.set(id, tex);
+  return tex;
+}
+function tooth(x, y){
+  return 0.70 + 0.30*(0.6*Math.sin(x*0.15 + y*0.31)*Math.sin(x*0.33 - y*0.13)
+                    + 0.4*Math.sin(x*0.71)*Math.sin(y*0.83));
+}
+function drawChalkSeg(ctx, a, b, color, w, tex){
+  const [ax, ay] = px(a), [bx, by] = px(b);
+  drawChalkSegPx(ctx, ax, ay, bx, by, color, w, tex);
+}
+function drawChalkSegPx(ctx, ax, ay, bx, by, color, w, tex){
+  ctx.fillStyle = color;
+  const dxv = bx - ax, dyv = by - ay;
+  const dist = Math.hypot(dxv, dyv) || 0.0001;
+  const pxu = -dyv/dist, pyu = dxv/dist;   // unit perpendicular
+  const r = w/2;
+  const step = Math.max(0.8, w*0.18);
+  const n = Math.min(64, Math.max(1, Math.ceil(dist/step)));
+  const dots = Math.max(3, Math.round(w*0.55));
+  const dotR = Math.max(0.5, w*0.13);
+  const aBase = 0.13 + 0.4/w;
+  for (let i = 0; i <= n; i++){
+    const t = i/n, cx = ax + dxv*t, cy = ay + dyv*t;
+    for (let k = 0; k < dots; k++){
+      let u = Math.random()*2 - 1;
+      u = Math.sign(u) * Math.pow(Math.abs(u), 1.15);   // slight center bias
+      let m = 1;
+      if (tex) for (const st of tex){ const dd = (u - st.o)/st.w; m -= st.d*Math.exp(-dd*dd); }
+      if (m <= 0.08) continue;
+      const x = cx + pxu*u*r + (Math.random()-0.5)*dotR;
+      const y = cy + pyu*u*r + (Math.random()-0.5)*dotR;
+      const a = (aBase + Math.random()*0.08) * m * Math.max(0.25, tooth(x, y)) * (1 - u*u*0.45);
+      if (a < 0.012) continue;
+      ctx.globalAlpha = Math.min(a, 0.4);
+      ctx.beginPath();
+      ctx.arc(x, y, dotR*(0.75 + Math.random()*0.5), 0, 6.2832);
+      ctx.fill();
+    }
+    // bright grain sparkle
+    if (Math.random() < 0.7){
+      const u = (Math.random()*2 - 1)*0.8;
+      const gs = 0.6 + Math.random();
+      ctx.globalAlpha = 0.28 + Math.random()*0.2;
+      ctx.fillRect(cx + pxu*u*r, cy + pyu*u*r, gs, gs);
+    }
+    // powdery edge
+    if (Math.random() < 0.15){
+      const sgn = Math.random() < 0.5 ? 1 : -1;
+      const u = sgn*(1.02 + Math.random()*0.35);
+      ctx.globalAlpha = 0.06 + Math.random()*0.08;
+      ctx.fillRect(cx + pxu*u*r + (Math.random()-0.5)*2, cy + pyu*u*r + (Math.random()-0.5)*2, 1.2, 1.2);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawEraseSeg(ctx, a, b, w){
+  const [ax, ay] = px(a), [bx, by] = px(b);
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.globalAlpha = 0.92;
+  ctx.lineWidth = w * 2.6;
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  ctx.restore();
+}
+
+/* ── doodle stamps ───────────────────────── */
+const STAMP_CACHE = {};
+function stampPaths(kind){
+  if (STAMP_CACHE[kind]) return STAMP_CACHE[kind];
+  const P = [];
+  if (kind === "heart"){
+    const pts = [];
+    for (let i = 0; i <= 40; i++){
+      const t = i/40 * Math.PI * 2;
+      pts.push([16*Math.pow(Math.sin(t),3)/17,
+                -(13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t))/17]);
+    }
+    P.push(pts);
+  } else if (kind === "star"){
+    const pts = [];
+    for (let i = 0; i <= 10; i++){
+      const a = -Math.PI/2 + i*Math.PI/5, r = i%2 ? 0.45 : 1;
+      pts.push([r*Math.cos(a), r*Math.sin(a)]);
+    }
+    P.push(pts);
+  } else if (kind === "flower"){
+    for (let p = 0; p < 5; p++){
+      const a = p*2*Math.PI/5 - Math.PI/2, cx = 0.55*Math.cos(a), cy = 0.55*Math.sin(a);
+      const pts = [];
+      for (let i = 0; i <= 14; i++){
+        const t = i/14 * 2*Math.PI;
+        pts.push([cx + 0.38*Math.cos(t), cy + 0.38*Math.sin(t)]);
+      }
+      P.push(pts);
+    }
+    const c = [];
+    for (let i = 0; i <= 12; i++){
+      const t = i/12 * 2*Math.PI;
+      c.push([0.18*Math.cos(t), 0.18*Math.sin(t)]);
+    }
+    P.push(c);
+  } else { // sun
+    const c = [];
+    for (let i = 0; i <= 20; i++){
+      const t = i/20 * 2*Math.PI;
+      c.push([0.55*Math.cos(t), 0.55*Math.sin(t)]);
+    }
+    P.push(c);
+    for (let r = 0; r < 8; r++){
+      const a = r*Math.PI/4;
+      P.push([[0.72*Math.cos(a), 0.72*Math.sin(a)], [Math.cos(a), Math.sin(a)]]);
+    }
+  }
+  STAMP_CACHE[kind] = P;
+  return P;
+}
+function drawStamp(ctx, s){
+  const [cx, cy] = px([s.x, s.y]);
+  const R = s.scale * view.width;
+  const w = wpx(s.w);
+  const tex = strokeTex(s.id);
+  for (const path of stampPaths(s.kind)){
+    for (let i = 1; i < path.length; i++){
+      drawChalkSegPx(ctx, cx + path[i-1][0]*R, cy + path[i-1][1]*R,
+                          cx + path[i][0]*R,   cy + path[i][1]*R, s.color, w, tex);
+    }
+  }
+}
+
+function drawStrokeRange(s, from){
+  const ctx = sideCtx(s.side);
+  if (s.tool === "stamp"){
+    if (from === 0){ clipSide(ctx, s.side); drawStamp(ctx, s); ctx.restore(); }
+    return 1;
+  }
+  const pts = s.pts || [];
+  if (!pts.length) return 0;
+  const w = wpx(s.w);
+  const tex = s.tool === "erase" ? null : strokeTex(s.id);
+  clipSide(ctx, s.side);
+  if (pts.length === 1 && from === 0){
+    if (s.tool === "erase"){ drawEraseSeg(ctx, pts[0], pts[0], w); }
+    else drawChalkSeg(ctx, pts[0], pts[0], s.color, w, tex);
+  } else {
+    for (let i = Math.max(1, from); i < pts.length; i++){
+      if (s.tool === "erase") drawEraseSeg(ctx, pts[i-1], pts[i], w);
+      else drawChalkSeg(ctx, pts[i-1], pts[i], s.color, w, tex);
+    }
+  }
+  ctx.restore();
+  return pts.length;
+}
+
+function applyStroke(s){
+  if (!s || !s.id) return;
+  let rec = strokeIndex.get(s.id);
+  if (!rec){
+    rec = { s, drawn: 0 };
+    strokeIndex.set(s.id, rec);
+    strokeOrder.push(s.id);
+  } else {
+    rec.s = s;
+  }
+  const len = (s.pts || []).length;
+  if (len < rec.drawn){ rebuildSide(s.side); }        // out-of-order edit
+  else if (len > rec.drawn){ rec.drawn = drawStrokeRange(s, rec.drawn); }
+  composite();
+  refreshHint();
+}
+
+function rebuildSide(side){
+  const ctx = sideCtx(side);
+  ctx.clearRect(0, 0, view.width, view.height);
+  for (const id of strokeOrder){
+    const rec = strokeIndex.get(id);
+    if (!rec || rec.s.side !== side) continue;
+    rec.drawn = drawStrokeRange(rec.s, 0);
+  }
+}
+
+function composite(){
+  vctx.clearRect(0, 0, view.width, view.height);
+  vctx.drawImage(offL, 0, 0);
+  vctx.drawImage(offR, 0, 0);
+}
+
+/* ── dust particles ──────────────────────── */
+const particles = [];
+let fxRunning = false;
+function spawnDust(cx, cy, kind, color){
+  const n = kind === "erase" ? 7 : 2;
+  for (let i = 0; i < n; i++){
+    particles.push({
+      x: cx + (Math.random()-0.5)*22,
+      y: cy + (Math.random()-0.5)*22,
+      vx: (Math.random()-0.5) * (kind === "erase" ? 1.4 : 0.5),
+      vy: kind === "erase" ? -Math.random()*1.1 - 0.2 : Math.random()*1.4 + 0.4,
+      r: kind === "erase" ? Math.random()*9 + 4 : Math.random()*2.2 + 0.8,
+      life: 1,
+      decay: kind === "erase" ? 0.02 + Math.random()*0.02 : 0.03 + Math.random()*0.03,
+      color: kind === "erase" ? "#e8e4da" : color,
+      soft: kind === "erase",
+    });
+  }
+  if (!fxRunning){ fxRunning = true; requestAnimationFrame(fxLoop); }
+}
+function fxLoop(){
+  fctx.clearRect(0, 0, fx.width, fx.height);
+  for (let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+    if (p.soft) p.r += 0.25;
+    if (p.life <= 0){ particles.splice(i, 1); continue; }
+    fctx.globalAlpha = p.soft ? p.life * 0.28 : p.life * 0.7;
+    fctx.fillStyle = p.color;
+    fctx.beginPath();
+    fctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    fctx.fill();
+  }
+  fctx.globalAlpha = 1;
+  if (particles.length){ requestAnimationFrame(fxLoop); }
+  else { fxRunning = false; fctx.clearRect(0,0,fx.width,fx.height); }
+}
+
+/* ── chalk sounds (generated, no files) ───── */
+let AC = null, noiseBuf = null, scratchNodes = null;
+let soundOn = localStorage.getItem("chalk-sound") !== "off";
+function ensureAudio(){
+  if (!soundOn) return null;
+  if (!AC){
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return null;
+    AC = new C();
+    noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
+  }
+  if (AC.state === "suspended") AC.resume();
+  return AC;
+}
+function startScratch(tool){
+  const ac = ensureAudio(); if (!ac) return;
+  stopScratch();
+  const src = ac.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  const bp = ac.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = tool === "erase" ? 420 : 1700;
+  bp.Q.value = tool === "erase" ? 0.6 : 2.5;
+  const g = ac.createGain(); g.gain.value = 0;
+  src.connect(bp); bp.connect(g); g.connect(ac.destination);
+  src.start();
+  scratchNodes = { src, bp, g, tool };
+}
+function scratchMove(speed){
+  if (!scratchNodes || !AC) return;
+  const { g, bp, tool } = scratchNodes;
+  const target = Math.min(tool === "erase" ? 0.085 : 0.05, speed * (tool === "erase" ? 4 : 6));
+  g.gain.setTargetAtTime(target, AC.currentTime, 0.03);
+  bp.frequency.setTargetAtTime(
+    (tool === "erase" ? 420 : 1500) + Math.random() * (tool === "erase" ? 200 : 900),
+    AC.currentTime, 0.05);
+}
+function stopScratch(){
+  if (!scratchNodes) return;
+  const { src, g } = scratchNodes;
+  if (AC) g.gain.setTargetAtTime(0, AC.currentTime, 0.04);
+  setTimeout(() => { try { src.stop(); } catch(e){} }, 220);
+  scratchNodes = null;
+}
+
+/* ── notes ───────────────────────────────── */
+const notesData = new Map();
+function noteFontPx(size){ return size * board.clientWidth / 1000; }
+function updateNoteScale(){
+  for (const [id, el] of noteEls){
+    const n = notesData.get(id);
+    if (n) el.style.fontSize = noteFontPx(n.size) + "px";
+  }
+}
+
+function renderNote(n){
+  notesData.set(n.id, n);
+  let el = noteEls.get(n.id);
+  const mine = n.side === state.mySide;
+  if (!el){
+    el = document.createElement("div");
+    el.className = "note";
+    el.innerHTML = '<div class="txt"></div><button class="del" title="erase this note">×</button>';
+    board.appendChild(el);
+    noteEls.set(n.id, el);
+
+    el.querySelector(".del").addEventListener("pointerdown", e => e.stopPropagation());
+    el.querySelector(".del").addEventListener("click", e => {
+      e.stopPropagation();
+      const r = el.getBoundingClientRect(), b = board.getBoundingClientRect();
+      const dx = (r.left - b.left + r.width/2) * fx.width / b.width;
+      const dy = (r.top - b.top + r.height/2) * fx.height / b.height;
+      store.removeNote(n.id);
+      spawnDust(dx, dy, "erase");
+    });
+
+    el.addEventListener("dblclick", () => { if (el.classList.contains("mine")) startEditNote(n.id); });
+
+    /* dragging */
+    el.addEventListener("pointerdown", e => {
+      e.stopPropagation();
+      if (!el.classList.contains("mine") || el.classList.contains("editing")) return;
+      const cur = notesData.get(n.id); if (!cur) return;
+      const b = board.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const ox = cur.x, oy = cur.y;
+      let moved = false;
+      el.setPointerCapture(e.pointerId);
+      const mv = ev => {
+        const dx = (ev.clientX - startX) / b.width;
+        const dy = (ev.clientY - startY) / b.height;
+        if (Math.abs(dx) + Math.abs(dy) > 0.004) moved = true;
+        const lo = cur.side === "L" ? 0.005 : 0.505;
+        const hi = cur.side === "L" ? 0.46 : 0.965;
+        cur.x = clamp(ox + dx, lo, hi);
+        cur.y = clamp(oy + dy, 0.01, 0.93);
+        el.style.left = (cur.x*100) + "%";
+        el.style.top  = (cur.y*100) + "%";
+      };
+      const up = () => {
+        el.removeEventListener("pointermove", mv);
+        el.removeEventListener("pointerup", up);
+        el.removeEventListener("pointercancel", up);
+        if (moved) store.putNote(cur);
+      };
+      el.addEventListener("pointermove", mv);
+      el.addEventListener("pointerup", up);
+      el.addEventListener("pointercancel", up);
+    });
+  }
+  el.classList.toggle("mine", mine);
+  el.style.left = (n.x*100) + "%";
+  el.style.top  = (n.y*100) + "%";
+  el.style.color = n.color;
+  el.style.fontSize = noteFontPx(n.size) + "px";
+  const txt = el.querySelector(".txt");
+  if (!el.classList.contains("editing") && txt.textContent !== n.text) txt.textContent = n.text;
+  refreshHint();
+}
+
+function startEditNote(id){
+  const el = noteEls.get(id); const n = notesData.get(id);
+  if (!el || !n) return;
+  const txt = el.querySelector(".txt");
+  el.classList.add("editing");
+  txt.contentEditable = "true";
+  txt.focus();
+  // place caret at end
+  const sel = window.getSelection(), range = document.createRange();
+  range.selectNodeContents(txt); range.collapse(false);
+  sel.removeAllRanges(); sel.addRange(range);
+  const done = () => {
+    txt.contentEditable = "false";
+    el.classList.remove("editing");
+    const cur = notesData.get(id); if (!cur) return;
+    const val = txt.textContent.trim();
+    if (!val){ store.removeNote(id); removeNoteEl(id); return; }
+    if (val !== cur.text){ cur.text = val; store.putNote(cur); }
+  };
+  txt.addEventListener("blur", done, { once: true });
+  txt.addEventListener("keydown", ev => {
+    if (ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); txt.blur(); }
+    if (ev.key === "Escape") txt.blur();
+  });
+}
+
+function removeNoteEl(id){
+  notesData.delete(id);
+  const el = noteEls.get(id);
+  if (el){ el.remove(); noteEls.delete(id); }
+  refreshHint();
+}
+
+/* ── hint ────────────────────────────────── */
+function refreshHint(){
+  const empty = strokeIndex.size === 0 && noteEls.size === 0;
+  $("#hint").classList.toggle("gone", !empty);
+}
+
+/* ── toast ───────────────────────────────── */
+let toastTimer = null, lastNudge = 0;
+function toast(msg, ms = 2200){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), ms);
+}
+function nudgeWrongSide(){
+  const now = Date.now();
+  if (now - lastNudge < 2500) return;
+  lastNudge = now;
+  const other = state.mySide === "L" ? "R" : "L";
+  const name = state.owners[other] && state.owners[other].name;
+  toast(name ? `that half belongs to ${name} 🤍` : "that half isn't yours 🤍");
+}
+
+/* ── drawing input ───────────────────────── */
+let drawing = null; // {stroke, lastPut}
+const ring = $("#ring");
+
+function boardPos(e){
+  const r = board.getBoundingClientRect();
+  return [clamp((e.clientX - r.left) / r.width, 0, 1),
+          clamp((e.clientY - r.top) / r.height, 0, 1)];
+}
+
+board.addEventListener("pointerdown", e => {
+  if (e.button !== undefined && e.button !== 0) return;
+  const [nx, ny] = boardPos(e);
+  const side = sideOf(nx);
+
+  if (!state.mySide){ toast("you're watching this board — cozy seat 🍵"); return; }
+  if (side !== state.mySide){ nudgeWrongSide(); return; }
+
+  if (state.tool === "text"){
+    const n = {
+      id: uid(), side, x: clamp(nx, side==="L"?0.005:0.505, side==="L"?0.46:0.965),
+      y: clamp(ny - 0.02, 0.01, 0.93),
+      size: state.textSize, color: state.color, text: "", t: Date.now(),
+    };
+    notesData.set(n.id, n);
+    renderNote(n);
+    startEditNote(n.id);
+    return;
+  }
+
+  if (state.tool === "stamp"){
+    const scale = clamp(state.textSize / 900, 0.02, 0.09);
+    const stamp = {
+      id: uid(), side, tool: "stamp", kind: state.stampKind,
+      color: state.color, w: Math.max(3, state.width * 0.8),
+      x: +nx.toFixed(4), y: +ny.toFixed(4), scale: +scale.toFixed(4),
+      pts: [[+nx.toFixed(4), +ny.toFixed(4)]],
+      t: Date.now(),
+    };
+    myStrokes.push(stamp.id);
+    applyStroke(stamp);
+    store.putStroke(stamp);
+    spawnDust(nx * fx.width, ny * fx.height, "chalk", state.color);
+    spawnDust(nx * fx.width, ny * fx.height, "chalk", state.color);
+    return;
+  }
+
+  board.setPointerCapture(e.pointerId);
+  const stroke = {
+    id: uid(), side, tool: state.tool === "erase" ? "erase" : "chalk",
+    color: state.color, w: state.width,
+    pts: [[+nx.toFixed(4), +ny.toFixed(4)]],
+    t: Date.now(),
+  };
+  drawing = { stroke, lastPut: 0 };
+  myStrokes.push(stroke.id);
+  applyStroke(stroke);
+  startScratch(stroke.tool);
+  e.preventDefault();
+});
+
+board.addEventListener("pointermove", e => {
+  const [nx, ny] = boardPos(e);
+  moveRing(e, nx);
+  if (!drawing) return;
+  const s = drawing.stroke;
+  const last = s.pts[s.pts.length - 1];
+  const dx = nx - last[0], dy = ny - last[1];
+  if (dx*dx + dy*dy < 0.000004) return;   // ignore micro-moves
+  s.pts.push([+nx.toFixed(4), +ny.toFixed(4)]);
+  applyStroke(s);
+  scratchMove(Math.hypot(dx, dy));
+  // dust
+  const bx = nx * fx.width, by = ny * fx.height;
+  if (s.tool === "erase") spawnDust(bx, by, "erase");
+  else if (Math.random() < 0.3) spawnDust(bx, by + wpx(s.w), "chalk", s.color);
+  // throttled sync
+  const now = Date.now();
+  if (now - drawing.lastPut > 130){
+    drawing.lastPut = now;
+    store.putStroke(s);
+  }
+});
+
+function endStroke(){
+  stopScratch();
+  if (!drawing) return;
+  store.putStroke(drawing.stroke);
+  drawing = null;
+}
+board.addEventListener("pointerup", endStroke);
+board.addEventListener("pointercancel", endStroke);
+
+/* cursor ring */
+function moveRing(e, nx){
+  const show = (state.tool === "chalk" || state.tool === "erase") &&
+               state.mySide && sideOf(nx) === state.mySide;
+  if (!show){ ring.style.display = "none"; return; }
+  const r = board.getBoundingClientRect();
+  const w = state.tool === "erase" ? state.width * 2.6 : state.width;
+  const d = Math.max(6, w * r.width / 1000);
+  ring.style.display = "block";
+  ring.style.width = ring.style.height = d + "px";
+  ring.style.left = (e.clientX - r.left) + "px";
+  ring.style.top  = (e.clientY - r.top) + "px";
+}
+board.addEventListener("pointerleave", () => ring.style.display = "none");
+
+/* ── store event handlers ────────────────── */
+on.stroke = applyStroke;
+on.strokeRemoved = (id, side) => {
+  const rec = strokeIndex.get(id);
+  strokeIndex.delete(id);
+  TEX_CACHE.delete(id);
+  const i = strokeOrder.indexOf(id);
+  if (i >= 0) strokeOrder.splice(i, 1);
+  rebuildSide(side || (rec && rec.s.side) || "L");
+  if (!side && !rec) { rebuildSide("L"); rebuildSide("R"); }
+  composite();
+  refreshHint();
+};
+on.note = renderNote;
+on.noteRemoved = removeNoteEl;
+
+on.owners = owners => {
+  state.owners = owners || {};
+  state.mySide = null;
+  for (const side of ["L", "R"]){
+    const o = state.owners[side];
+    if (o && o.deviceId === deviceId) state.mySide = side;
+  }
+  updateLabels();
+  updateClaimUI();
+  if (state.mySide) store.setPresence(state.mySide);
+  rememberBoard();
+  // re-mark notes ownership
+  for (const n of notesData.values()) renderNote(n);
+};
+
+on.meta = meta => {
+  meta = meta || {};
+  if (meta.bg && meta.bg !== state.bg){ state.bg = meta.bg; }
+  board.style.backgroundColor = state.bg;
+  document.querySelectorAll(".bg-swatch").forEach(b =>
+    b.classList.toggle("sel", b.dataset.bg === state.bg));
+  const titleEl = $("#roomTitle");
+  if (meta.title && titleEl.textContent !== meta.title && document.activeElement !== titleEl){
+    titleEl.textContent = meta.title;
+  }
+  rememberBoard();
+};
+
+on.presence = pres => {
+  pres = pres || {};
+  for (const side of ["L", "R"]){
+    const lab = $(side === "L" ? ".side-label.left" : ".side-label.right");
+    const dot = lab.querySelector(".dot");
+    const p = pres[side];
+    dot.classList.toggle("online", !!(p && p.online));
+    if (p && !p.online && p.last){
+      lab.title = "last visited " + timeAgo(p.last);
+    } else if (p && p.online){
+      lab.title = "here right now ✨";
+    }
+  }
+};
+
+function timeAgo(ts){
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return m + " min ago";
+  const h = Math.round(m / 60);
+  if (h < 24) return h + (h === 1 ? " hour ago" : " hours ago");
+  const d = Math.round(h / 24);
+  return d + (d === 1 ? " day ago" : " days ago");
+}
+
+/* ── labels & claiming ───────────────────── */
+function updateLabels(){
+  for (const side of ["L", "R"]){
+    const lab = $(side === "L" ? ".side-label.left" : ".side-label.right");
+    const who = lab.querySelector(".who");
+    const o = state.owners[side];
+    const mine = state.mySide === side;
+    who.textContent = o ? (o.name + (mine ? " (you)" : "")) : "waiting for someone ♡";
+    lab.classList.toggle("mine", mine);
+    who.contentEditable = mine ? "true" : "false";
+    who.spellcheck = false;
+    if (mine) lab.querySelector(".dot").classList.add("online"); // you're here
+    lab.title = mine ? "tap your name to change it" : lab.title;
+  }
+}
+
+/* rename by editing your own label */
+document.querySelectorAll(".side-label .who").forEach(who => {
+  who.addEventListener("keydown", e => {
+    if (e.key === "Enter"){ e.preventDefault(); who.blur(); }
+  });
+  who.addEventListener("blur", () => {
+    if (!state.mySide) return;
+    let name = who.textContent.replace(/\s*\(you\)\s*$/, "").trim().slice(0, 24);
+    const cur = state.owners[state.mySide];
+    if (!name){ updateLabels(); return; }
+    if (cur && name !== cur.name) store.claimSide(state.mySide, { name, deviceId });
+    else updateLabels();
+  });
+  who.addEventListener("pointerdown", e => e.stopPropagation());
+});
+
+function updateClaimUI(){
+  const wrap = $("#modalWrap");
+  if (state.mySide){ wrap.classList.remove("show"); return; }
+  const L = state.owners.L, R = state.owners.R;
+  if (L && R){ // spectator
+    wrap.classList.remove("show");
+    $("#modeBadge").textContent = "watching 🍵";
+    return;
+  }
+  $("#pickL").disabled = !!L;
+  $("#pickR").disabled = !!R;
+  $("#pickL").querySelector("small").textContent = L ? "taken by " + L.name : "this one's free";
+  $("#pickR").querySelector("small").textContent = R ? "taken by " + R.name : "this one's free";
+  wrap.classList.add("show");
+}
+
+function claim(side){
+  const name = $("#nameInput").value.trim().slice(0, 24);
+  if (!name){ $("#nameInput").focus(); toast("tell us your name first ♡"); return; }
+  localStorage.setItem("chalk-name", name);
+  store.claimSide(side, { name, deviceId });
+  toast(`welcome, ${name}! the ${side === "L" ? "left" : "right"} half is yours ✨`);
+}
+$("#pickL").addEventListener("click", () => claim("L"));
+$("#pickR").addEventListener("click", () => claim("R"));
+$("#nameInput").value = localStorage.getItem("chalk-name") || "";
+
+/* ── tray: chalks ────────────────────────── */
+const chalksEl = $("#chalks");
+CHALK_COLORS.forEach(([name, hex], i) => {
+  const b = document.createElement("button");
+  b.className = "chalk" + (i === 0 ? " sel" : "");
+  b.style.background = `linear-gradient(180deg, ${hex}, ${hex} 60%, ${shade(hex, -18)})`;
+  b.title = name + " chalk";
+  b.addEventListener("click", () => {
+    state.color = hex;
+    if (state.tool === "erase") state.tool = "chalk"; // picking chalk leaves eraser; text/stamp keep the new color
+    document.querySelectorAll(".chalk").forEach(c => c.classList.remove("sel"));
+    b.classList.add("sel");
+    setToolUI();
+  });
+  chalksEl.appendChild(b);
+});
+function shade(hex, amt){
+  const n = parseInt(hex.slice(1), 16);
+  const r = clamp((n >> 16) + amt, 0, 255), g = clamp((n >> 8 & 255) + amt, 0, 255), b2 = clamp((n & 255) + amt, 0, 255);
+  return "#" + ((r << 16 | g << 8 | b2).toString(16).padStart(6, "0"));
+}
+
+/* tool buttons */
+const eraserBtn = $("#eraserBtn"), textBtn = $("#textBtn");
+eraserBtn.addEventListener("click", () => {
+  state.tool = state.tool === "erase" ? "chalk" : "erase";
+  setToolUI();
+});
+textBtn.addEventListener("click", () => {
+  state.tool = state.tool === "text" ? "chalk" : "text";
+  setToolUI();
+  if (state.tool === "text") toast("tap your half of the board to leave a note ✎");
+});
+function setToolUI(){
+  eraserBtn.classList.toggle("sel", state.tool === "erase");
+  textBtn.classList.toggle("sel", state.tool === "text");
+  document.querySelectorAll(".stamp-btn").forEach(b =>
+    b.classList.toggle("sel", state.tool === "stamp" && b.dataset.kind === state.stampKind));
+  board.style.cursor = state.tool === "text" ? "text" : "crosshair";
+}
+
+/* stamps tray */
+const STAMPS = [["heart","♥"], ["star","★"], ["flower","✿"], ["sun","☀"]];
+const stampsEl = $("#stamps");
+STAMPS.forEach(([kind, glyph]) => {
+  const b = document.createElement("button");
+  b.className = "stamp-btn";
+  b.dataset.kind = kind;
+  b.textContent = glyph;
+  b.title = kind + " stamp";
+  b.addEventListener("click", () => {
+    if (state.tool === "stamp" && state.stampKind === kind) state.tool = "chalk";
+    else { state.tool = "stamp"; state.stampKind = kind; }
+    setToolUI();
+  });
+  stampsEl.appendChild(b);
+});
+
+/* sound toggle */
+const soundBtn = $("#soundBtn");
+function syncSoundBtn(){
+  soundBtn.textContent = soundOn ? "🔊" : "🔇";
+  soundBtn.title = "chalk sounds " + (soundOn ? "on" : "off");
+}
+soundBtn.addEventListener("click", () => {
+  soundOn = !soundOn;
+  try { localStorage.setItem("chalk-sound", soundOn ? "on" : "off"); } catch(e){}
+  if (!soundOn) stopScratch();
+  syncSoundBtn();
+});
+syncSoundBtn();
+
+/* sliders */
+$("#widthSlider").addEventListener("input", e => state.width = +e.target.value);
+$("#sizeSlider").addEventListener("input", e => state.textSize = +e.target.value);
+
+/* backgrounds */
+const bgsEl = $("#bgs");
+BOARDS.forEach(([name, hex], i) => {
+  const b = document.createElement("button");
+  b.className = "bg-swatch" + (i === 0 ? " sel" : "");
+  b.dataset.bg = hex;
+  b.style.background = hex;
+  b.title = name;
+  b.addEventListener("click", () => {
+    if (!state.mySide){ toast("only the two owners can repaint the board 🤍"); return; }
+    store.setMeta({ bg: hex });
+  });
+  bgsEl.appendChild(b);
+});
+
+/* undo */
+function undo(){
+  if (!state.mySide){ return; }
+  const id = myStrokes.pop();
+  if (!id){ toast("nothing to undo ✨"); return; }
+  store.removeStroke(id);
+}
+$("#undoBtn").addEventListener("click", undo);
+document.addEventListener("keydown", e => {
+  if (e.target && (e.target.isContentEditable || /INPUT|TEXTAREA/.test(e.target.tagName))) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z"){ e.preventDefault(); undo(); }
+});
+
+/* wipe my side — two-step confirm */
+const clearBtn = $("#clearBtn");
+let clearArmed = null;
+clearBtn.addEventListener("click", () => {
+  if (!state.mySide){ toast("spectators can't wipe the board 🤍"); return; }
+  if (!clearArmed){
+    clearBtn.textContent = "really wipe?";
+    clearBtn.classList.add("danger-armed");
+    clearArmed = setTimeout(disarmClear, 3000);
+    return;
+  }
+  disarmClear();
+  const side = state.mySide;
+  for (const id of [...strokeOrder]){
+    const rec = strokeIndex.get(id);
+    if (rec && rec.s.side === side) store.removeStroke(id);
+  }
+  for (const [id, n] of [...notesData]){
+    if (n.side === side) store.removeNote(id);
+  }
+  myStrokes.length = 0;
+  // satisfying dust cloud across the side
+  for (let i = 0; i < 16; i++){
+    spawnDust((side === "L" ? 0.25 : 0.75) * fx.width + (Math.random()-0.5)*fx.width*0.4,
+              Math.random()*fx.height, "erase");
+  }
+  toast("all clean — a fresh start ✨");
+});
+function disarmClear(){
+  clearTimeout(clearArmed); clearArmed = null;
+  clearBtn.textContent = "wipe my side";
+  clearBtn.classList.remove("danger-armed");
+}
+
+/* ── keepsake export ─────────────────────── */
+function wrapText(x2, text, maxW){
+  const out = [];
+  for (const raw of String(text).split("\n")){
+    let line = "";
+    for (const word of raw.split(" ")){
+      const t = line ? line + " " + word : word;
+      if (x2.measureText(t).width > maxW && line){ out.push(line); line = word; }
+      else line = t;
+    }
+    out.push(line);
+  }
+  return out;
+}
+function keepsake(){
+  const W = 1600, H = 1000, M = 80, CAP = 120;
+  const c = document.createElement("canvas");
+  c.width = W + M*2; c.height = H + M*2 + CAP;
+  const x2 = c.getContext("2d");
+  // cream polaroid card
+  x2.fillStyle = "#f6eedd";
+  x2.fillRect(0, 0, c.width, c.height);
+  // wooden frame
+  const g = x2.createLinearGradient(0, M-28, 0, M+H+28);
+  g.addColorStop(0, "#a06b3e"); g.addColorStop(0.4, "#835430"); g.addColorStop(1, "#5e3a1e");
+  x2.fillStyle = g;
+  x2.beginPath();
+  if (x2.roundRect) x2.roundRect(M-28, M-28, W+56, H+56, 18);
+  else x2.rect(M-28, M-28, W+56, H+56);
+  x2.fill();
+  // board + chalk
+  x2.fillStyle = state.bg;
+  x2.fillRect(M, M, W, H);
+  x2.drawImage(offL, 0, 0, offL.width, offL.height, M, M, W, H);
+  x2.drawImage(offR, 0, 0, offR.width, offR.height, M, M, W, H);
+  // divider
+  x2.strokeStyle = "#f4f1ea55"; x2.lineWidth = 3; x2.lineCap = "round";
+  x2.setLineDash([14, 18]);
+  x2.beginPath(); x2.moveTo(M + W/2, M + 16); x2.lineTo(M + W/2, M + H - 16); x2.stroke();
+  x2.setLineDash([]);
+  // typed notes
+  x2.textBaseline = "top"; x2.textAlign = "left";
+  for (const n of notesData.values()){
+    const fs = n.size * W / 1000;
+    x2.font = '600 ' + fs + 'px "Caveat", cursive';
+    x2.fillStyle = n.color;
+    const lines = wrapText(x2, n.text, W * 0.42);
+    lines.forEach((ln, i) => x2.fillText(ln, M + n.x*W, M + n.y*H + i*fs*1.15));
+  }
+  // caption
+  const date = new Date().toLocaleDateString(undefined, { year:"numeric", month:"long", day:"numeric" });
+  x2.fillStyle = "#5b4230"; x2.textAlign = "center";
+  x2.font = '600 56px "Caveat", cursive';
+  x2.fillText($("#roomTitle").textContent.trim() + "  ·  " + date, c.width/2, M + H + M + 6);
+  // download
+  const a = document.createElement("a");
+  a.download = "chalkboard-" + roomId + "-" + new Date().toISOString().slice(0,10) + ".png";
+  a.href = c.toDataURL("image/png");
+  a.click();
+  toast("keepsake saved 🖼 — a little piece of the board, forever");
+}
+$("#keepsakeBtn").addEventListener("click", () => {
+  document.fonts && document.fonts.ready ? document.fonts.ready.then(keepsake) : keepsake();
+});
+
+/* ── header ──────────────────────────────── */
+$("#inviteBtn").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    toast("link copied — send it to your favorite person ♥");
+  } catch(e) {
+    prompt("copy this link:", location.href);
+  }
+});
+
+const titleEl = $("#roomTitle");
+titleEl.contentEditable = "true";
+titleEl.addEventListener("keydown", e => {
+  if (e.key === "Enter"){ e.preventDefault(); titleEl.blur(); }
+});
+titleEl.addEventListener("blur", () => {
+  const t = titleEl.textContent.trim().slice(0, 40) || "our little chalkboard";
+  titleEl.textContent = t;
+  store.setMeta({ title: t });
+});
+
+$("#anotherBoard").addEventListener("click", e => { e.preventDefault(); goToBoard(newRoomId()); });
+
+$("#modeBadge").textContent = hasFirebase ? "" : "local mode";
+$("#localNote").textContent = hasFirebase
+  ? ""
+  : "local mode: notes stay on this device for now — see README.md to connect the two of you.";
+
+/* ── boot ────────────────────────────────── */
+board.style.backgroundColor = state.bg;
+window.addEventListener("resize", resizeCanvases);
+resizeCanvases();
+store.start();
+// if owners never arrive (fresh local room), show claim modal
+setTimeout(() => { if (!state.mySide) updateClaimUI(); }, 400);
+
+/* ── "they left you something" ───────────── */
+const seenKey = "chalk-seen-" + roomId;
+const lastSeen = +localStorage.getItem(seenKey) || 0;
+function markSeen(){ try { localStorage.setItem(seenKey, String(Date.now())); } catch(e){} }
+window.addEventListener("beforeunload", markSeen);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") markSeen();
+});
+setTimeout(() => {
+  if (!state.mySide || !lastSeen){ markSeen(); return; }
+  const other = state.mySide === "L" ? "R" : "L";
+  let newest = 0;
+  for (const { s } of strokeIndex.values()) if (s.side === other) newest = Math.max(newest, s.t || 0);
+  for (const n of notesData.values()) if (n.side === other) newest = Math.max(newest, n.t || 0);
+  if (newest > lastSeen){
+    const name = (state.owners[other] && state.owners[other].name) || "someone";
+    const glow = document.createElement("div");
+    glow.className = "gift-glow " + (other === "L" ? "gl-left" : "gl-right");
+    board.appendChild(glow);
+    setTimeout(() => glow.remove(), 4400);
+    toast("✨ " + name + " left you something", 4500);
+  }
+  markSeen();
+}, 1600);
+
+})();
+</script>
+</body>
+</html>
