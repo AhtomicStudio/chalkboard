@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>our little chalkboard</title>
+<title>Chalktalk — our little chalkboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
@@ -358,8 +358,8 @@
 <section id="landing">
   <div class="landing-board">
     <div class="lb-inner">
-      <div class="lb-title">a chalkboard for two</div>
-      <div class="lb-sub">one board, split down the middle.<br>your half, their half, little chalk notes in between.</div>
+      <div class="lb-title">Chalktalk</div>
+      <div class="lb-sub">a chalkboard for two — one board, split down the middle.<br>your half, their half, little chalk notes in between.</div>
       <div class="lb-hearts">♥ ✎ ♥</div>
     </div>
   </div>
@@ -1526,7 +1526,7 @@ function keepsake(){
   x2.fillText($("#roomTitle").textContent.trim() + "  ·  " + date, c.width/2, M + H + M + 6);
   // download
   const a = document.createElement("a");
-  a.download = "chalkboard-" + roomId + "-" + new Date().toISOString().slice(0,10) + ".png";
+  a.download = "chalktalk-" + roomId + "-" + new Date().toISOString().slice(0,10) + ".png";
   a.href = c.toDataURL("image/png");
   a.click();
   toast("keepsake saved 🖼 — a little piece of the board, forever");

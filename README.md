@@ -1,4 +1,6 @@
-# our little chalkboard 🖤
+# Chalktalk 🖤
+
+*our little chalkboard*
 
 A cozy chalkboard for any two people. Each pair gets their own private board: one half each — draw with chalk, leave typed notes, erase with satisfying dust clouds, and pick the board color together.
 
